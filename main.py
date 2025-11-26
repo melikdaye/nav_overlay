@@ -2,101 +2,41 @@ import time
 import re
 import os
 from flask import Flask, request, jsonify
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
 app = Flask(__name__)
 
-def extract_latlon(url: str):
-    pattern = r"@(-?\d+\.\d+),(-?\d+\.\d+),(\d+)z"
-    m = re.search(pattern, url)
-    if not m:
-        return None
-    return {"lat": float(m.group(1)), "lon": float(m.group(2)), "zoom": int(m.group(3))}
-
-def resolve_google_maps(url: str):
-
-    chrome_options = Options()
-    chrome_options.binary_location = "/usr/bin/google-chrome"
-
-    # *** Hız Optimizasyonları ***
-    chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--disable-extensions")
-    chrome_options.add_argument("--disable-software-rasterizer")
-    chrome_options.add_argument("--window-size=800,600")
-    chrome_options.add_argument("--disable-background-networking")
-    chrome_options.add_argument("--disable-sync")
-    chrome_options.add_argument("--metrics-recording-only")
-    chrome_options.add_argument("--disable-default-apps")
-    chrome_options.add_argument("--no-first-run")
-    chrome_options.add_argument("--disable-popup-blocking")
-    chrome_options.add_argument("--disable-hang-monitor")
-    chrome_options.add_argument("--disable-prompt-on-repost")
-    chrome_options.add_argument("--dns-prefetch-disable")
-    chrome_options.add_argument("--disk-cache-size=0")
-    chrome_options.add_argument("--disable-features=TranslateUI")
-
-    # ASCII output minimize
-    os.environ["WDM_LOG_LEVEL"] = "0"
-
-    # *** Chromedriver container içine build sırasında kurulmuş olacak ***
-    service = Service("/usr/local/bin/chromedriver")
-
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-
-    # Lite mode: Maps çok daha hızlı yüklenir
-    if "?" in url:
-        url += "&force=lite"
-    else:
-        url += "?force=lite"
-
-    driver.get(url)
-
+def resolve_short_url(url):
     try:
-        # Map canvas yüklenene kadar max 2.5 saniye bekle
-        WebDriverWait(driver, 1).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "canvas"))
-        )
+        r = requests.get(url, allow_redirects=True, timeout=5)
+        return r.url
     except:
-        pass
+        return None
 
-    # URL güncellemesi için hızlı scroll hack (çok hızlı)
-    #try:
-        #driver.execute_script("window.scrollBy(0,2);")
-    marker = driver.find_elements(By.CSS_SELECTOR, "img[src*='googleusercontent']")
-    if marker:
-        marker[0].click()
 
-    time.sleep(0.01)
+def extract_gmaps_coords(url: str):
+    # METHOD 1: !3dLAT !4dLON  (EN DOĞRU)
+    m1 = re.search(r'!3d([0-9\.\-]+)!4d([0-9\.\-]+)', url)
+    if m1:
+        lat = float(m1.group(1))
+        lon = float(m1.group(2))
+        return lat, lon
 
-    # panel HTML'ini al
-    html = driver.page_source
+    # METHOD 2: @LAT,LON,
+    m2 = re.search(r'@([0-9\.\-]+),([0-9\.\-]+)', url)
+    if m2:
+        lat = float(m2.group(1))
+        lon = float(m2.group(2))
+        return lat, lon
 
-    # koordinatları meta tag içinden çek
-    import re
-    match = re.search(r'"latitude":([0-9\.\-]+),"longitude":([0-9\.\-]+)', html)
-    if match:
-        lat = float(match.group(1))
-        lon = float(match.group(2))
+    # METHOD 3: embed !2dLON !3dLAT
+    lon_match = re.search(r'!2d([0-9\.\-]+)', url)
+    lat_match = re.search(r'!3d([0-9\.\-]+)', url)
+    if lat_match and lon_match:
+        lat = float(lat_match.group(1))
+        lon = float(lon_match.group(1))
+        return lat,lon
 
-        #driver.execute_script("window.scrollBy(0,-2);")
-        #time.sleep(0.01)
-    #except:
-        #pass
-
-    final_url = driver.current_url
-    #coords = extract_latlon(final_url)
-
-    driver.quit()
-
-    return final_url, {"lat": float(lat), "lon": float(lon), "zoom": int(15)}
+    return None
 
 
 @app.get("/resolve")
@@ -104,11 +44,19 @@ def resolve():
     try:
         url = request.args.get("url")
         if not url:
-            return jsonify({"error": "url param required"}), 400
+            return jsonify({"error": "url required"}), 400
+    
+        long_url = resolve_short_url(url)
+        if not long_url:
+            return jsonify({"error": "cannot resolve short url"}), 500
+    
+        coords = extract_gmaps_coords(long_url)
+        if not coords:
+            return jsonify({"error": "cannot extract coordinates"}), 500
+    
+        lat, lon = coords
 
-        final_url, coords = resolve_google_maps(url)
-
-        return jsonify({"final_url": final_url, "coordinates": coords})
+        return jsonify({"final_url": long_url, "coordinates":  {"lat": float(lat), "lon": float(lon), "zoom": int(15)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
