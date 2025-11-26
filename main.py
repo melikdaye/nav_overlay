@@ -27,28 +27,52 @@ def extract_coords_from_url(url):
 
 
 
-def get_google_share_link(url):
+def get_google_share_link(initial_url: str):
 
     chrome_options = Options()
+
+    # Headless = new
     chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--window-size=1366,768")
+    chrome_options.add_argument("--start-maximized")
+
+    # Masaüstü user-agent kullan
+    chrome_options.add_argument(
+        "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    )
+
+    # Maps Lite UI engelleme
+    chrome_options.add_argument("--disable-features=IsolateOrigins,SitePerProcess,TranslateUI")
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
 
     service = Service("/usr/local/bin/chromedriver")
     driver = webdriver.Chrome(service=service, options=chrome_options)
 
-    driver.get(url)
-    time.sleep(0.5)
+    driver.get(initial_url)
+    time.sleep(3)
 
-    # 2) Paylaş butonunu bul
+    # Google bazen cookie banner veriyor
+    try:
+        agree_btn = driver.find_element(By.CSS_SELECTOR, "button[aria-label*='Tümünü kabul et'], button[aria-label*='Accept all']")
+        agree_btn.click()
+        time.sleep(1)
+    except:
+        pass
+
+    # Paylaş / Share butonunu bul
     share_btn = driver.find_element(
         By.CSS_SELECTOR,
         "button[aria-label*='Paylaş'], button[aria-label*='Share']"
     )
     share_btn.click()
-    time.sleep(2)
+    time.sleep(1.2)
 
-    # 3) Popup’taki link inputunu bul
+    # Popup'taki input
     input_box = driver.find_element(By.CSS_SELECTOR, "input.vrsrZe")
     short_link = input_box.get_attribute("value")
 
