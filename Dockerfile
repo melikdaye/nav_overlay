@@ -15,23 +15,11 @@ RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd6
     && apt-get install -y ./google-chrome-stable_current_amd64.deb \
     && rm google-chrome-stable_current_amd64.deb
 
-# --------------------------------------------------
-# INSTALL MATCHING CHROMEDRIVER (Simple + Robust)
-# --------------------------------------------------
-RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}') \
-    && MAJOR=$(echo $CHROME_VERSION | cut -d '.' -f 1) \
-    && echo "Chrome version is $CHROME_VERSION (major=$MAJOR)" \
-    && DRIVER_URL="https://storage.googleapis.com/chrome-for-testing-public/${MAJOR}.0.0/LATEST_RELEASE/chromedriver-linux64.zip" \
-    && echo "Downloading driver from $DRIVER_URL" \
-    && wget -q -O /tmp/chromedriver.zip "$DRIVER_URL" \
-    && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
-    && mv /usr/local/bin/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver \
-    && chmod +x /usr/local/bin/chromedriver \
-    && rm -rf /usr/local/bin/chromedriver-linux64 /tmp/chromedriver.zip
+# Put your pre-downloaded ChromeDriver into container
+COPY chromedriver /usr/local/bin/chromedriver
+RUN chmod +x /usr/local/bin/chromedriver
 
-# --------------------------------------------------
-
-# Python deps
+# Python packages
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
