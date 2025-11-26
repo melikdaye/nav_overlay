@@ -1,13 +1,12 @@
 import time
 import re
-from flask import Flask, request, jsonify
-import undetected_chromedriver as uc
-from selenium.webdriver.chrome.options import Options
 import os
-import traceback
+from flask import Flask, request, jsonify
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 
 app = Flask(__name__)
-app.debug = True  # Debug ON
 
 def extract_latlon(url: str):
     pattern = r"@(-?\d+\.\d+),(-?\d+\.\d+),(\d+)z"
@@ -21,73 +20,63 @@ def extract_latlon(url: str):
     }
 
 def resolve_google_maps(url: str):
-    print(">>> Incoming URL:", url, flush=True)
+    chrome_options = Options()
+    chrome_options.add_argument("--headless=new")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--disable-software-rasterizer")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--window-size=1280,720")
+
+    # IMPORTANT: Render'da Chrome path burasıdır
+    chrome_options.binary_location = "/usr/bin/google-chrome"
+
+    driver = webdriver.Chrome(
+        ChromeDriverManager().install(),
+        options=chrome_options
+    )
+
+    driver.get(url)
+    time.sleep(3)
 
     try:
-        chrome_options = Options()
-        chrome_options.add_argument("--headless=new")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--disable-software-rasterizer")
-        chrome_options.add_argument("--disable-extensions")
-
-        print(">>> Launching Chrome...", flush=True)
-        driver = uc.Chrome(options=chrome_options)
-
-        print(">>> Navigating to URL...", flush=True)
-        driver.get(url)
-        time.sleep(3)
-
-        print(">>> Current URL after load:", driver.current_url, flush=True)
-
-        # Maps bazen URL güncellemez -> tetikle
         driver.execute_script("window.scrollBy(0, 1);")
         time.sleep(1)
         driver.execute_script("window.scrollBy(0, -1);")
         time.sleep(1)
+    except:
+        pass
 
-        final_url = driver.current_url
-        driver.quit()
+    final_url = driver.current_url
+    driver.quit()
 
-        print(">>> Final URL:", final_url, flush=True)
-
-        coords = extract_latlon(final_url)
-        print(">>> Extracted coords:", coords, flush=True)
-
-        return final_url, coords
-
-    except Exception as e:
-        print(">>> ERROR in resolve_google_maps:", e, flush=True)
-        print(traceback.format_exc(), flush=True)
-        raise
+    coords = extract_latlon(final_url)
+    return final_url, coords
 
 
 @app.get("/resolve")
 def resolve():
-    try:
-        url = request.args.get("url")
-        if not url:
-            return jsonify({"error": "url param required"}), 400
+    url = request.args.get("url")
+    if not url:
+        return jsonify({"error": "url param required"}), 400
 
-        final_url, coords = resolve_google_maps(url)
+    final_url, coords = resolve_google_maps(url)
 
-        return jsonify({
-            "final_url": final_url,
-            "coordinates": coords
-        })
-
-    except Exception as e:
-        print(">>> ERROR in /resolve handler:", e, flush=True)
-        print(traceback.format_exc(), flush=True)
-        return jsonify({"error": str(e)}), 500
+    return jsonify({
+        "final_url": final_url,
+        "coordinates": coords
+    })
 
 
 @app.get("/")
 def home():
-    return {"status": "ok", "message": "resolver running", "debug": True}
+    return {
+        "status": "ok",
+        "message": "Google Maps resolver is running"
+    }
 
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port)
