@@ -3,11 +3,9 @@ import re
 import os
 from flask import Flask, request, jsonify
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 import requests
 
 app = Flask(__name__)
@@ -32,17 +30,11 @@ def extract_coords_from_url(url):
 def get_google_share_link(url):
 
     chrome_options = Options()
-    chrome_options.binary_location = "/usr/bin/google-chrome"
-
-    # *** Hız Optimizasyonları ***
     chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--window-size=1200,900")
 
-    # *** Chromedriver container içine build sırasında kurulmuş olacak ***
     service = Service("/usr/local/bin/chromedriver")
-
     driver = webdriver.Chrome(service=service, options=chrome_options)
 
     driver.get(url)
