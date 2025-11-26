@@ -10,18 +10,44 @@ RUN apt-get update && apt-get install -y \
     libxshmfence1 libgtk-3-0 \
     --no-install-recommends
 
-# Install Chrome stable
+# Install Google Chrome stable
 RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
     && apt-get install -y ./google-chrome-stable_current_amd64.deb \
     && rm google-chrome-stable_current_amd64.deb
 
-# Install universal ChromeDriver (compatible with Chrome 115+)
-RUN wget -q -O /tmp/chromedriver.zip "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/LatestStable/chromedriver-linux64.zip" \
-    && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
-    && mv /usr/local/bin/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver \
+
+##############################
+# UNIVERSAL CHROMEDRIVER (3-stage fallback)
+##############################
+
+# Stage 1: Chrome for Testing - LatestStable
+RUN echo "Trying ChromeDriver: Chrome-For-Testing LatestStable..." \
+    && wget -q -O /tmp/chromedriver.zip \
+         "https://storage.googleapis.com/chrome-for-testing-public/LatestStable/chromedriver-linux64.zip" \
+    || true
+
+# Stage 2: If file is empty, try universal driver (LATEST_RELEASE)
+RUN if [ ! -s /tmp/chromedriver.zip ]; then \
+        echo "Fallback 1: universal ChromeDriver (LATEST_RELEASE)" && \
+        UNIVERSAL=$(wget -qO- https://chromedriver.storage.googleapis.com/LATEST_RELEASE) && \
+        wget -q -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$UNIVERSAL/chromedriver_linux64.zip" \
+    ; fi || true
+
+# Stage 3: If still empty → fallback stable version (120)
+RUN if [ ! -s /tmp/chromedriver.zip ]; then \
+        echo "Fallback 2: Trying ChromeDriver 120..." && \
+        wget -q -O /tmp/chromedriver.zip \
+           "https://chromedriver.storage.googleapis.com/120.0.6099.71/chromedriver_linux64.zip" \
+    ; fi || true
+
+# Final: Install whatever we got
+RUN unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
+    && mv /usr/local/bin/chromedriver* /usr/local/bin/chromedriver \
     && chmod +x /usr/local/bin/chromedriver \
-    && rm -rf /usr/local/bin/chromedriver-linux64 \
-    && rm /tmp/chromedriver.zip
+    && rm /tmp/chromedriver.zip || true
+
+
+##############################
 
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
