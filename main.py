@@ -24,7 +24,31 @@ def extract_coords_from_url(url):
         lon = float(match.group(2))
         return lat, lon
     return None
+    
+def wait_for_share_input(driver, timeout=5):
 
+    selectors = [
+        "input.vrsrZe",
+        "input[readonly][type='text']",
+        "input[jsaction*='clickInput']",
+        "input[data-clipboard-text]",
+        "input[aria-label*='Copy']",
+        "input[aria-label*='Kopyala']",
+    ]
+
+    end = time.time() + timeout
+
+    while time.time() < end:
+        for s in selectors:
+            try:
+                el = driver.find_element(By.CSS_SELECTOR, s)
+                return el
+            except:
+                pass
+
+        time.sleep(0.3)
+
+    return None
 
 
 def get_google_share_link(initial_url: str):
@@ -32,7 +56,7 @@ def get_google_share_link(initial_url: str):
     chrome_options = Options()
 
     # Headless = new
-    chrome_options.add_argument("--headless")
+    # chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--disable-dev-shm-usage")
@@ -49,10 +73,6 @@ def get_google_share_link(initial_url: str):
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/120.0.0.0 Safari/537.36"
     )
-
-    # Maps Lite UI engelleme
-    chrome_options.add_argument("--disable-features=IsolateOrigins,SitePerProcess,TranslateUI")
-    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
 
     service = Service("/usr/local/bin/chromedriver")
     driver = webdriver.Chrome(service=service, options=chrome_options)
@@ -77,7 +97,7 @@ def get_google_share_link(initial_url: str):
     time.sleep(1.2)
 
     # Popup'taki input
-    input_box = driver.find_element(By.CSS_SELECTOR, "input.vrsrZe")
+    input_box = wait_for_share_input(driver)
     short_link = input_box.get_attribute("value")
 
     driver.quit()
