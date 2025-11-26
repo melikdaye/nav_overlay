@@ -1,9 +1,10 @@
-from fastapi import FastAPI
-from playwright.async_api import async_playwright
-import asyncio
+import time
 import re
+from flask import Flask, request, jsonify
+import undetected_chromedriver as uc
+from selenium.webdriver.chrome.options import Options
 
-app = FastAPI()
+app = Flask(__name__)
 
 def extract_latlon(url: str):
     pattern = r"@(-?\d+\.\d+),(-?\d+\.\d+),(\d+)z"
@@ -16,36 +17,52 @@ def extract_latlon(url: str):
         "zoom": int(m.group(3))
     }
 
-async def get_final_url_and_coords(url: str):
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox"]
-        )
-        page = await browser.new_page()
+def resolve_google_maps(url: str):
+    chrome_options = Options()
+    chrome_options.add_argument("--headless=new")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--disable-software-rasterizer")
+    chrome_options.add_argument("--disable-extensions")
 
-        await page.goto(url, wait_until="networkidle", timeout=30000)
+    driver = uc.Chrome(options=chrome_options)
 
-        # Maps URL yüklenmesi için bekleme
-        await asyncio.sleep(2)
+    driver.get(url)
+    time.sleep(3)
 
-        # URL güncellenmiyorsa tetikle
-        try:
-            await page.keyboard.press("+")
-            await asyncio.sleep(1)
-        except:
-            pass
+    # Maps bazen URL değiştirmez → hareket tetikleyelim
+    try:
+        driver.execute_script("window.scrollBy(0, 1);")
+        time.sleep(1)
+        driver.execute_script("window.scrollBy(0, -1);")
+        time.sleep(1)
+    except:
+        pass
 
-        final_url = page.url    # <-- DOĞRUSU BU
-        coords = extract_latlon(final_url)
+    final_url = driver.current_url
+    driver.quit()
 
-        await browser.close()
-        return final_url, coords
+    coords = extract_latlon(final_url)
+    return final_url, coords
+
 
 @app.get("/resolve")
-async def resolve(url: str):
-    final_url, coords = await get_final_url_and_coords(url)
-    return {
+def resolve():
+    url = request.args.get("url")
+    if not url:
+        return jsonify({"error": "url param required"}), 400
+
+    final_url, coords = resolve_google_maps(url)
+
+    return jsonify({
         "final_url": final_url,
         "coordinates": coords
-    }
+    })
+
+
+if __name__ == "__main__":
+    # Render default PORT env değişkeni kullanır
+    import os
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
