@@ -5,7 +5,9 @@ from flask import Flask, request, jsonify
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 app = Flask(__name__)
 
@@ -14,51 +16,70 @@ def extract_latlon(url: str):
     m = re.search(pattern, url)
     if not m:
         return None
-    return {
-        "lat": float(m.group(1)),
-        "lon": float(m.group(2)),
-        "zoom": int(m.group(3))
-    }
+    return {"lat": float(m.group(1)), "lon": float(m.group(2)), "zoom": int(m.group(3))}
 
 def resolve_google_maps(url: str):
+
     chrome_options = Options()
     chrome_options.binary_location = "/usr/bin/google-chrome"
+
+    # *** Hız Optimizasyonları ***
     chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--disable-software-rasterizer")
     chrome_options.add_argument("--disable-extensions")
-    chrome_options.add_argument("--window-size=1280,720")
+    chrome_options.add_argument("--disable-software-rasterizer")
+    chrome_options.add_argument("--window-size=800,600")
+    chrome_options.add_argument("--disable-background-networking")
+    chrome_options.add_argument("--disable-sync")
+    chrome_options.add_argument("--metrics-recording-only")
+    chrome_options.add_argument("--disable-default-apps")
+    chrome_options.add_argument("--no-first-run")
+    chrome_options.add_argument("--disable-popup-blocking")
+    chrome_options.add_argument("--disable-hang-monitor")
+    chrome_options.add_argument("--disable-prompt-on-repost")
+    chrome_options.add_argument("--dns-prefetch-disable")
+    chrome_options.add_argument("--disk-cache-size=0")
+    chrome_options.add_argument("--disable-features=TranslateUI")
 
-    print(">>> Installing chromedriver...", flush=True)
-    service = Service(ChromeDriverManager().install())
+    # ASCII output minimize
+    os.environ["WDM_LOG_LEVEL"] = "0"
 
-    print(">>> Starting Chrome in headless mode...", flush=True)
+    # *** Chromedriver container içine build sırasında kurulmuş olacak ***
+    service = Service("/usr/local/bin/chromedriver")
+
     driver = webdriver.Chrome(service=service, options=chrome_options)
 
-    print(">>> Navigating:", url, flush=True)
+    # Lite mode: Maps çok daha hızlı yüklenir
+    if "?" in url:
+        url += "&force=lite"
+    else:
+        url += "?force=lite"
+
     driver.get(url)
-    time.sleep(3)
 
-    print(">>> After initial load:", driver.current_url, flush=True)
-
-    # Maps URL bazen güncellenmez → tetikleyelim
     try:
-        driver.execute_script("window.scrollBy(0, 2);")
-        time.sleep(1)
-        driver.execute_script("window.scrollBy(0, -2);")
-        time.sleep(1)
+        # Map canvas yüklenene kadar max 2.5 saniye bekle
+        WebDriverWait(driver, 2.5).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "canvas"))
+        )
     except:
-        print("Scroll failed")
+        pass
+
+    # URL güncellemesi için hızlı scroll hack (çok hızlı)
+    try:
+        driver.execute_script("window.scrollBy(0,2);")
+        time.sleep(0.05)
+        driver.execute_script("window.scrollBy(0,-2);")
+        time.sleep(0.05)
+    except:
+        pass
 
     final_url = driver.current_url
-    print(">>> Final URL:", final_url, flush=True)
-
-    driver.quit()
     coords = extract_latlon(final_url)
 
-    print(">>> Extracted coords:", coords, flush=True)
+    driver.quit()
 
     return final_url, coords
 
@@ -72,20 +93,14 @@ def resolve():
 
         final_url, coords = resolve_google_maps(url)
 
-        return jsonify({
-            "final_url": final_url,
-            "coordinates": coords
-        })
+        return jsonify({"final_url": final_url, "coordinates": coords})
     except Exception as e:
-        print(">>> ERROR:", e, flush=True)
-        import traceback
-        print(traceback.format_exc(), flush=True)
         return jsonify({"error": str(e)}), 500
 
 
 @app.get("/")
 def home():
-    return {"status": "ok", "message": "Google Maps Resolver running"}
+    return {"status": "running", "version": "ultra_fast_1.0"}
 
 
 if __name__ == "__main__":
