@@ -70,18 +70,31 @@ def resolve_google_maps(url: str):
     # URL güncellemesi için hızlı scroll hack (çok hızlı)
     #try:
         #driver.execute_script("window.scrollBy(0,2);")
+    marker = driver.find_element(By.CSS_SELECTOR, "img[src*='markers']")
+    marker.click()
     time.sleep(0.01)
+
+    # panel HTML'ini al
+    html = driver.page_source
+
+    # koordinatları meta tag içinden çek
+    import re
+    match = re.search(r'"latitude":([0-9\.\-]+),"longitude":([0-9\.\-]+)', html)
+    if match:
+        lat = float(match.group(1))
+        lon = float(match.group(2))
+
         #driver.execute_script("window.scrollBy(0,-2);")
         #time.sleep(0.01)
     #except:
         #pass
 
     final_url = driver.current_url
-    coords = extract_latlon(final_url)
+    #coords = extract_latlon(final_url)
 
     driver.quit()
 
-    return final_url, coords
+    return final_url, {"lat": float(lat), "lon": float(lon), "zoom": int(15)}
 
 
 @app.get("/resolve")
