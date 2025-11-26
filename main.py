@@ -70,8 +70,10 @@ def resolve_google_maps(url: str):
     # URL güncellemesi için hızlı scroll hack (çok hızlı)
     #try:
         #driver.execute_script("window.scrollBy(0,2);")
-    marker = driver.find_element(By.CSS_SELECTOR, "img[src*='markers']")
-    marker.click()
+    marker = driver.find_elements(By.CSS_SELECTOR, "img[src*='googleusercontent']")
+    if marker:
+        marker[0].click()
+
     time.sleep(0.01)
 
     # panel HTML'ini al
