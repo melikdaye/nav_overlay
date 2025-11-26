@@ -69,7 +69,7 @@ def get_google_share_link(url):
         url += "?force=lite"
 
     driver.get(url)
-    time.sleep(0.5)
+    time.sleep(1.5)
 
     # 2) Paylaş butonunu bul
     share_btn = driver.find_element(
@@ -77,7 +77,7 @@ def get_google_share_link(url):
         "button[aria-label*='Paylaş'], button[aria-label*='Share']"
     )
     share_btn.click()
-    time.sleep(1)
+    time.sleep(1.5)
 
     # 3) Popup’taki link inputunu bul
     input_box = driver.find_element(By.CSS_SELECTOR, "input.vrsrZe")
