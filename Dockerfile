@@ -10,45 +10,36 @@ RUN apt-get update && apt-get install -y \
     libxshmfence1 libgtk-3-0 \
     --no-install-recommends
 
-# Install Google Chrome stable
+
+# -------------------------------
+# Install Chrome stable
+# -------------------------------
 RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
     && apt-get install -y ./google-chrome-stable_current_amd64.deb \
     && rm google-chrome-stable_current_amd64.deb
 
 
-##############################
-# UNIVERSAL CHROMEDRIVER (3-stage fallback)
-##############################
-
-# Stage 1: Chrome for Testing - LatestStable
-RUN echo "Trying ChromeDriver: Chrome-For-Testing LatestStable..." \
+# -------------------------------
+# Install matching ChromeDriver (Chrome-for-Testing)
+# -------------------------------
+RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}') \
+    && MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d '.' -f 1) \
+    && FULL_VERSION=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json \
+        | grep -o "\"version\": \"${MAJOR_VERSION}[^\"]*\"" | head -n 1 | cut -d '"' -f 4) \
+    && echo "Chrome version: $CHROME_VERSION" \
+    && echo "Matching driver version: $FULL_VERSION" \
     && wget -q -O /tmp/chromedriver.zip \
-         "https://storage.googleapis.com/chrome-for-testing-public/LatestStable/chromedriver-linux64.zip" \
-    || true
-
-# Stage 2: If file is empty, try universal driver (LATEST_RELEASE)
-RUN if [ ! -s /tmp/chromedriver.zip ]; then \
-        echo "Fallback 1: universal ChromeDriver (LATEST_RELEASE)" && \
-        UNIVERSAL=$(wget -qO- https://chromedriver.storage.googleapis.com/LATEST_RELEASE) && \
-        wget -q -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$UNIVERSAL/chromedriver_linux64.zip" \
-    ; fi || true
-
-# Stage 3: If still empty → fallback stable version (120)
-RUN if [ ! -s /tmp/chromedriver.zip ]; then \
-        echo "Fallback 2: Trying ChromeDriver 120..." && \
-        wget -q -O /tmp/chromedriver.zip \
-           "https://chromedriver.storage.googleapis.com/120.0.6099.71/chromedriver_linux64.zip" \
-    ; fi || true
-
-# Final: Install whatever we got
-RUN unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
-    && mv /usr/local/bin/chromedriver* /usr/local/bin/chromedriver \
+        https://storage.googleapis.com/chrome-for-testing-public/$FULL_VERSION/chromedriver-linux64.zip \
+    && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
+    && mv /usr/local/bin/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver \
     && chmod +x /usr/local/bin/chromedriver \
-    && rm /tmp/chromedriver.zip || true
+    && rm -rf /usr/local/bin/chromedriver-linux64 \
+    && rm /tmp/chromedriver.zip
 
 
-##############################
-
+# -------------------------------
+# Install python deps
+# -------------------------------
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
