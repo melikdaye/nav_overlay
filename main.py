@@ -56,7 +56,9 @@ def resolve():
     
         lat, lon = coords
 
-        return jsonify({"final_url": long_url, "coordinates":  {"lat": float(lat), "lon": float(lon), "zoom": int(15)})
+        return jsonify({"final_url": long_url, 
+                "coordinates": {"lat": float(lat), "lon": float(lon), "zoom": 15}})
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
