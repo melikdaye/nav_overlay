@@ -61,7 +61,7 @@ def resolve_google_maps(url: str):
 
     try:
         # Map canvas yüklenene kadar max 2.5 saniye bekle
-        WebDriverWait(driver, 2.5).until(
+        WebDriverWait(driver, 1).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "canvas"))
         )
     except:
@@ -70,9 +70,9 @@ def resolve_google_maps(url: str):
     # URL güncellemesi için hızlı scroll hack (çok hızlı)
     try:
         driver.execute_script("window.scrollBy(0,2);")
-        time.sleep(0.05)
+        time.sleep(0.01)
         driver.execute_script("window.scrollBy(0,-2);")
-        time.sleep(0.05)
+        #time.sleep(0.01)
     except:
         pass
 
