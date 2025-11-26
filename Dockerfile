@@ -10,36 +10,28 @@ RUN apt-get update && apt-get install -y \
     libxshmfence1 libgtk-3-0 \
     --no-install-recommends
 
-
-# -------------------------------
 # Install Chrome stable
-# -------------------------------
 RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
     && apt-get install -y ./google-chrome-stable_current_amd64.deb \
     && rm google-chrome-stable_current_amd64.deb
 
-
-# -------------------------------
-# Install matching ChromeDriver (Chrome-for-Testing)
-# -------------------------------
+# --------------------------------------------------
+# INSTALL MATCHING CHROMEDRIVER (Simple + Robust)
+# --------------------------------------------------
 RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}') \
-    && MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d '.' -f 1) \
-    && FULL_VERSION=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json \
-        | grep -o "\"version\": \"${MAJOR_VERSION}[^\"]*\"" | head -n 1 | cut -d '"' -f 4) \
-    && echo "Chrome version: $CHROME_VERSION" \
-    && echo "Matching driver version: $FULL_VERSION" \
-    && wget -q -O /tmp/chromedriver.zip \
-        https://storage.googleapis.com/chrome-for-testing-public/$FULL_VERSION/chromedriver-linux64.zip \
+    && MAJOR=$(echo $CHROME_VERSION | cut -d '.' -f 1) \
+    && echo "Chrome version is $CHROME_VERSION (major=$MAJOR)" \
+    && DRIVER_URL="https://storage.googleapis.com/chrome-for-testing-public/${MAJOR}.0.0/LATEST_RELEASE/chromedriver-linux64.zip" \
+    && echo "Downloading driver from $DRIVER_URL" \
+    && wget -q -O /tmp/chromedriver.zip "$DRIVER_URL" \
     && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
     && mv /usr/local/bin/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver \
     && chmod +x /usr/local/bin/chromedriver \
-    && rm -rf /usr/local/bin/chromedriver-linux64 \
-    && rm /tmp/chromedriver.zip
+    && rm -rf /usr/local/bin/chromedriver-linux64 /tmp/chromedriver.zip
 
+# --------------------------------------------------
 
-# -------------------------------
-# Install python deps
-# -------------------------------
+# Python deps
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
