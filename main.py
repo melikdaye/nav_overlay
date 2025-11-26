@@ -4,6 +4,7 @@ import os
 from flask import Flask, request, jsonify
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
 app = Flask(__name__)
@@ -21,6 +22,7 @@ def extract_latlon(url: str):
 
 def resolve_google_maps(url: str):
     chrome_options = Options()
+    chrome_options.binary_location = "/usr/bin/google-chrome"
     chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
@@ -29,52 +31,61 @@ def resolve_google_maps(url: str):
     chrome_options.add_argument("--disable-extensions")
     chrome_options.add_argument("--window-size=1280,720")
 
-    # IMPORTANT: Render'da Chrome path burasıdır
-    chrome_options.binary_location = "/usr/bin/google-chrome"
+    print(">>> Installing chromedriver...", flush=True)
+    service = Service(ChromeDriverManager().install())
 
-    driver = webdriver.Chrome(
-        ChromeDriverManager().install(),
-        options=chrome_options
-    )
+    print(">>> Starting Chrome in headless mode...", flush=True)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
 
+    print(">>> Navigating:", url, flush=True)
     driver.get(url)
     time.sleep(3)
 
+    print(">>> After initial load:", driver.current_url, flush=True)
+
+    # Maps URL bazen güncellenmez → tetikleyelim
     try:
-        driver.execute_script("window.scrollBy(0, 1);")
+        driver.execute_script("window.scrollBy(0, 2);")
         time.sleep(1)
-        driver.execute_script("window.scrollBy(0, -1);")
+        driver.execute_script("window.scrollBy(0, -2);")
         time.sleep(1)
     except:
-        pass
+        print("Scroll failed")
 
     final_url = driver.current_url
-    driver.quit()
+    print(">>> Final URL:", final_url, flush=True)
 
+    driver.quit()
     coords = extract_latlon(final_url)
+
+    print(">>> Extracted coords:", coords, flush=True)
+
     return final_url, coords
 
 
 @app.get("/resolve")
 def resolve():
-    url = request.args.get("url")
-    if not url:
-        return jsonify({"error": "url param required"}), 400
+    try:
+        url = request.args.get("url")
+        if not url:
+            return jsonify({"error": "url param required"}), 400
 
-    final_url, coords = resolve_google_maps(url)
+        final_url, coords = resolve_google_maps(url)
 
-    return jsonify({
-        "final_url": final_url,
-        "coordinates": coords
-    })
+        return jsonify({
+            "final_url": final_url,
+            "coordinates": coords
+        })
+    except Exception as e:
+        print(">>> ERROR:", e, flush=True)
+        import traceback
+        print(traceback.format_exc(), flush=True)
+        return jsonify({"error": str(e)}), 500
 
 
 @app.get("/")
 def home():
-    return {
-        "status": "ok",
-        "message": "Google Maps resolver is running"
-    }
+    return {"status": "ok", "message": "Google Maps Resolver running"}
 
 
 if __name__ == "__main__":
