@@ -36,40 +36,17 @@ def get_google_share_link(url):
 
     # *** Hız Optimizasyonları ***
     chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--disable-extensions")
-    chrome_options.add_argument("--disable-software-rasterizer")
-    chrome_options.add_argument("--window-size=800,600")
-    chrome_options.add_argument("--disable-background-networking")
-    chrome_options.add_argument("--disable-sync")
-    chrome_options.add_argument("--metrics-recording-only")
-    chrome_options.add_argument("--disable-default-apps")
-    chrome_options.add_argument("--no-first-run")
-    chrome_options.add_argument("--disable-popup-blocking")
-    chrome_options.add_argument("--disable-hang-monitor")
-    chrome_options.add_argument("--disable-prompt-on-repost")
-    chrome_options.add_argument("--dns-prefetch-disable")
-    chrome_options.add_argument("--disk-cache-size=0")
-    chrome_options.add_argument("--disable-features=TranslateUI")
-
-    # ASCII output minimize
-    os.environ["WDM_LOG_LEVEL"] = "0"
+    chrome_options.add_argument("--window-size=1200,900")
 
     # *** Chromedriver container içine build sırasında kurulmuş olacak ***
     service = Service("/usr/local/bin/chromedriver")
 
     driver = webdriver.Chrome(service=service, options=chrome_options)
 
-    # Lite mode: Maps çok daha hızlı yüklenir
-    if "?" in url:
-        url += "&force=lite"
-    else:
-        url += "?force=lite"
-
     driver.get(url)
-    time.sleep(1.5)
+    time.sleep(0.5)
 
     # 2) Paylaş butonunu bul
     share_btn = driver.find_element(
@@ -77,7 +54,7 @@ def get_google_share_link(url):
         "button[aria-label*='Paylaş'], button[aria-label*='Share']"
     )
     share_btn.click()
-    time.sleep(1.5)
+    time.sleep(1)
 
     # 3) Popup’taki link inputunu bul
     input_box = driver.find_element(By.CSS_SELECTOR, "input.vrsrZe")
