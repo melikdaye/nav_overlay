@@ -68,13 +68,13 @@ def resolve_google_maps(url: str):
         pass
 
     # URL güncellemesi için hızlı scroll hack (çok hızlı)
-    try:
-        driver.execute_script("window.scrollBy(0,2);")
-        time.sleep(0.01)
-        driver.execute_script("window.scrollBy(0,-2);")
+    #try:
+        #driver.execute_script("window.scrollBy(0,2);")
+    time.sleep(0.01)
+        #driver.execute_script("window.scrollBy(0,-2);")
         #time.sleep(0.01)
-    except:
-        pass
+    #except:
+        #pass
 
     final_url = driver.current_url
     coords = extract_latlon(final_url)
