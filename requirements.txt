@@ -1,4 +1,4 @@
 Flask
 selenium
-undetected-chromedriver
+webdriver-manager
 
