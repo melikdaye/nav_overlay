@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# chrome dependencies
+# Chrome dependencies
 RUN apt-get update && apt-get install -y \
     wget curl unzip gnupg ca-certificates \
     libnss3 libxss1 libasound2 libatk1.0-0 \
@@ -10,20 +10,19 @@ RUN apt-get update && apt-get install -y \
     libxshmfence1 libgtk-3-0 \
     --no-install-recommends
 
-# Install chrome
+# Install Chrome stable
 RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
     && apt-get install -y ./google-chrome-stable_current_amd64.deb \
     && rm google-chrome-stable_current_amd64.deb
 
-# Install chromedriver (matching Chrome version)
-RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}') && \
-    CHROMEDRIVER_VERSION=$(wget -qO- "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION%.*}") && \
-    wget -q -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip" && \
-    unzip /tmp/chromedriver.zip -d /usr/local/bin/ && \
-    chmod +x /usr/local/bin/chromedriver && \
-    rm /tmp/chromedriver.zip
+# Install universal ChromeDriver (compatible with Chrome 115+)
+RUN wget -q -O /tmp/chromedriver.zip "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/LatestStable/chromedriver-linux64.zip" \
+    && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
+    && mv /usr/local/bin/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver \
+    && chmod +x /usr/local/bin/chromedriver \
+    && rm -rf /usr/local/bin/chromedriver-linux64 \
+    && rm /tmp/chromedriver.zip
 
-# Python deps
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
@@ -31,5 +30,5 @@ COPY . /app
 WORKDIR /app
 
 ENV PORT=10000
-CMD ["python", "main.py"]
 
+CMD ["python", "main.py"]
